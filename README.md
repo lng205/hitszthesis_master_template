@@ -1,4 +1,4 @@
-# 哈尔滨工业大学（深圳）硕士开题报告latex模板
+# 哈尔滨工业大学（深圳）硕士开题及中期报告latex模板
 
 本模板在[hitszthesis](https://github.com/YangLaTeX/hitszthesis)基础上修改得到。
 
@@ -17,4 +17,4 @@
 - [x] 删去hitszthesis中开题报告不需要的内容
 - [x] 修改页眉文本
 - [x] 删去页脚中的横线
-- [x] 修改封面（与word版本字体不完全一致，也可单独导出word封面再使用PDF工具拼接）
+- [x] 修改封面（与word版本字体不完全一致，建议单独导出word封面，再使用PDF工具拼接）
