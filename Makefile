@@ -1,121 +1,85 @@
-# Makefile for hitszthesis
+# Simple Makefile for HITSZ Thesis
 
-# Compiling method: latexmk/xelatex/pdflatex
-METHOD = xelatex
-# Set opts for latexmk if you use it
-LATEXMKOPTS = -xelatex
-# Set opts for xelatex if you use it
-XELATEXOPTS = -shell-escape
-# Basename of thesis
-THESISMAIN = main
+# Configuration
+BUILDDIR = build
+MAIN = main
+LATEX = xelatex -shell-escape
 
-PACKAGE=hitszthesis
-SOURCES=$(PACKAGE).ins $(PACKAGE).dtx
-THESISCONTENTS=$(THESISMAIN).tex front/*.tex body/*.tex back/*.tex $(FIGURES) *.bst
-# NOTE: update this to reflect your local file types.
-FIGURES=$(wildcard figures/*.eps figures/*.pdf)
-BIBFILE=*.bib
-CLSFILES=dtx-style.sty $(PACKAGE).cls $(PACKAGE).ist h$(PACKAGE).cfg
+# File patterns
+TEXFILES = $(MAIN).tex front/*.tex body/*.tex back/*.tex
+BIBFILES = *.bib
+STYLEFILES = *.cls *.sty *.cfg *.ist *.bst
 
-# make deletion work on Windows
+# Cross-platform commands
 ifdef SystemRoot
-	RM = del /Q
+	RM = del /Q /S
+	MKDIR = mkdir
+	COPY = xcopy /E /I /Y
 	OPEN = start
 else
-	RM = rm -f
-	OPEN = open
+	RM = rm -rf
+	MKDIR = mkdir -p
+	COPY = cp -r
+	OPEN = xdg-open
 endif
 
-.PHONY: all clean distclean dist thesis wordcount viewthesis doc dev pub viewdoc cls check FORCE_MAKE
+# Default target
+all: thesis
 
-all: doc thesis
+# Create build directory
+$(BUILDDIR):
+	@$(MKDIR) $(BUILDDIR)
 
-cls: $(CLSFILES)
+# Copy source files to build directory
+copy-sources: $(BUILDDIR)
+	@echo "Copying source files..."
+	@$(COPY) $(MAIN).tex $(BUILDDIR)/ 2>/dev/null || cp $(MAIN).tex $(BUILDDIR)/
+	@$(COPY) front $(BUILDDIR)/ 2>/dev/null || cp -r front $(BUILDDIR)/ || true
+	@$(COPY) body $(BUILDDIR)/ 2>/dev/null || cp -r body $(BUILDDIR)/ || true
+	@$(COPY) back $(BUILDDIR)/ 2>/dev/null || cp -r back $(BUILDDIR)/ || true
+	@$(COPY) figures $(BUILDDIR)/ 2>/dev/null || cp -r figures $(BUILDDIR)/ || true
+	@$(COPY) *.bib $(BUILDDIR)/ 2>/dev/null || cp *.bib $(BUILDDIR)/ || true
+	@$(COPY) *.cls $(BUILDDIR)/ 2>/dev/null || cp *.cls $(BUILDDIR)/ || true
+	@$(COPY) *.sty $(BUILDDIR)/ 2>/dev/null || cp *.sty $(BUILDDIR)/ || true
+	@$(COPY) *.cfg $(BUILDDIR)/ 2>/dev/null || cp *.cfg $(BUILDDIR)/ || true
+	@$(COPY) *.ist $(BUILDDIR)/ 2>/dev/null || cp *.ist $(BUILDDIR)/ || true
+	@$(COPY) *.bst $(BUILDDIR)/ 2>/dev/null || cp *.bst $(BUILDDIR)/ || true
 
-$(CLSFILES): $(SOURCES)
-	xelatex $(PACKAGE).ins
+# Build thesis
+thesis: copy-sources
+	@echo "Building thesis..."
+	@cd $(BUILDDIR) && $(LATEX) $(MAIN).tex
+	@cd $(BUILDDIR) && bibtex $(MAIN) || true
+	@cd $(BUILDDIR) && $(LATEX) $(MAIN).tex
+	@cd $(BUILDDIR) && $(LATEX) $(MAIN).tex
+	@echo "Thesis built successfully: $(BUILDDIR)/$(MAIN).pdf"
 
-viewdoc: doc
-	$(OPEN) $(PACKAGE).pdf
+# Copy PDF to root directory
+pdf: thesis
+	@$(COPY) $(BUILDDIR)/$(MAIN).pdf . 2>/dev/null || cp $(BUILDDIR)/$(MAIN).pdf .
+	@echo "PDF copied to $(MAIN).pdf"
 
-doc: $(PACKAGE).pdf
+# Count words
+wc:
+	@texcount $(MAIN).tex -inc -chinese
 
-wordcount : $(THESISMAIN).tex
-	@texcount $< -inc -chinese
-
-viewthesis: thesis
-	$(OPEN) $(THESISMAIN).pdf
-
-thesis: $(THESISMAIN).pdf
-
-ifeq ($(METHOD),latexmk)
-
-LATEXCMD := $(METHOD) $(LATEXMKOPTS)
-
-$(PACKAGE).pdf: $(CLSFILES) FORCE_MAKE
-	$(LATEXCMD) $(LATEXMKOPTS) $(PACKAGE).dtx
-
-$(THESISMAIN).pdf: $(CLSFILES) FORCE_MAKE
-	$(LATEXCMD) $(LATEXMKOPTS) $(THESISMAIN)
-
-else ifeq ($(METHOD),xelatex)
-
-LATEXCMD := $(METHOD) $(XELATEXOPTS)
-
-$(PACKAGE).pdf: $(CLSFILES)
-	$(LATEXCMD) $(PACKAGE).dtx
-	makeindex -s gind.ist -o $(PACKAGE).ind $(PACKAGE).idx
-	makeindex -s gglo.ist -o $(PACKAGE).gls $(PACKAGE).glo
-	$(LATEXCMD) $(PACKAGE).dtx
-	$(LATEXCMD) $(PACKAGE).dtx
-
-$(THESISMAIN).idx: $(THESISMAIN).bbl
-	$(LATEXCMD) $(THESISMAIN)
-	$(LATEXCMD) $(THESISMAIN)
-
-
-$(THESISMAIN)_china.idx : $(CLSFILES) $(THESISMAIN).bbl $(THESISMAIN).idx
-	splitindex $(THESISMAIN) -- -s $(PACKAGE).ist
-
-$(THESISMAIN)_english.ind $(THESISMAIN)_china.ind $(THESISMAIN)_english.idx : $(THESISMAIN)_china.idx
-
-$(THESISMAIN).pdf: $(CLSFILES) $(THESISCONTENTS) $(THESISMAIN)_china.ind $(THESISMAIN)_china.idx $(THESISMAIN)_english.ind $(THESISMAIN)_english.idx $(THESISMAIN).bbl
-	$(LATEXCMD) $(THESISMAIN)
-	splitindex $(THESISMAIN) -- -s $(PACKAGE).ist
-	$(LATEXCMD) $(THESISMAIN)
-
-$(THESISMAIN).bbl: $(BIBFILE) $(THESISCONTENTS)
-	$(LATEXCMD) $(THESISMAIN)
-	-bibtex $(THESISMAIN)
-	$(RM) $(THESISMAIN).pdf
-
-else
-$(error Unknown METHOD: $(METHOD))
-
-endif
-
-dev: doc thesis clean
-
-pub: doc thesis cleanall
-
+# Clean build files
 clean:
-	latexmk -c $(PACKAGE).dtx
-	latexmk -c $(THESISMAIN)
-	-@$(RM) *~ *.idx *.ind *.ilg *.thm *.toe *.bbl *.hd
+	@echo "Cleaning build directory..."
+	@$(RM) $(BUILDDIR) 2>/dev/null || true
 
-cleanall: clean
-	-@$(RM) $(PACKAGE).pdf $(THESISMAIN).pdf
 
-distclean: cleanall
-	-@$(RM) $(CLSFILES)
-	-@$(RM) -r dist
+# Force rebuild
+rebuild: clean thesis
 
-check: FORCE_MAKE
-	ag 'Dissertation Template for Harbin Institute of Technology, ShenZhen|\\def\\version|"version":' hitszthesis.dtx package.json
+# Help
+help:
+	@echo "Available targets:"
+	@echo "  thesis    - Build the thesis (output in build/ directory)"
+	@echo "  pdf       - Build thesis and copy PDF to root directory"
+	@echo "  wc - Count words in the document"
+	@echo "  clean     - Remove build directory"
+	@echo "  rebuild   - Clean and rebuild everything"
+	@echo "  help      - Show this help message"
 
-dist: all
-	@if [ -z "$(version)" ]; then \
-		echo "Usage: make dist version=[x.y.z | ctan]"; \
-	else \
-		npm run build -- --version=$(version); \
-	fi
+.PHONY: all thesis pdf wc clean rebuild help copy-sources

@@ -1,9 +1,5 @@
-main.*
-main-china.*
-!main.tex
-
-dtx-style.sty
+build/
+*.pdf
+*.sty
 *.cfg
 *.cls
-*.ist
-*.log
